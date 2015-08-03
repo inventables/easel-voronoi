@@ -18,8 +18,17 @@ var executor = function(args, success, failure) {
     return [Math.random() * width + left, Math.random() * height + bottom];
   });
 
+  var shapePolygon = shapeParams.pointArrays[0];
+  var clipPolygon = d3.geom.polygon(shapePolygon.slice().reverse());
+
   var clipPolygons = function(polygon) {
     return clipPolygon.clip(polygon);
+  };
+
+  var flipY = function(polygon) {
+    return polygon.map(function(point) {
+      return [point[0], top - point[1] + bottom];
+    });
   };
 
   var polygonPath = function(d) {
@@ -34,20 +43,19 @@ var executor = function(args, success, failure) {
 
   var voronoi = d3.geom.voronoi(); //.clipExtent([[0, 0], [width, height]]);
 
-  var clipPolygon = d3.geom.polygon(shapeParams.pointArrays[0]);
   var polygons = voronoi(vertices);
   //var clippedPolygons = polygons; //polygons.map(clipPolygons)
-  var clippedPolygons = polygons.map(clipPolygons).filter(function(p) { return p.length > 0; });
+  var clippedPolygons = polygons.map(clipPolygons).filter(function(p) { return p.length > 0});
+  clippedPolygons = clippedPolygons.map(flipY);
   var clippedPolygonPaths = clippedPolygons.map(polygonPath);
 
-  var clipperPath = highlightedPolygonPath(shapeParams.pointArrays[0]);
+  //var clipperPath = highlightedPolygonPath(shapePolygon);
 
   var svg = [
     '<?xml version="1.0" standalone="no"?>',
     '<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="500px" height="500px"',
-      ' viewBox="' + left + ' ' + bottom + ' ' + width + ' ' + height + '">',
+    ' viewBox="' + left + ' ' + bottom + ' ' + width + ' ' + height + '">',
     clippedPolygonPaths.join(""),
-    clipperPath,
     '</svg>'
   ].join("");
 
