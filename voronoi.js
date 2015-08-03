@@ -37,7 +37,7 @@ var executor = function(args, success, failure) {
   var clipPolygon = d3.geom.polygon(shapeParams.pointArrays[0]);
   var polygons = voronoi(vertices);
   //var clippedPolygons = polygons; //polygons.map(clipPolygons)
-  var clippedPolygons = polygons.map(clipPolygons).filter(function(p) { return p.length > 0});
+  var clippedPolygons = polygons.map(clipPolygons).filter(function(p) { return p.length > 0; });
   var clippedPolygonPaths = clippedPolygons.map(polygonPath);
 
   var clipperPath = highlightedPolygonPath(shapeParams.pointArrays[0]);
