@@ -33,23 +33,18 @@ var executor = function(args, success, failure) {
 
   var polygonPath = function(d) {
     return "<path d='M" + d.join("L") + "Z" + "'/>";
-    //return "<path stroke-width='1' fill='none' stroke='black' d='M" + d.join("L") + "Z" + "'/>";
   }
 
   var highlightedPolygonPath = function(d) {
     return "<path stroke-width='1' stroke='yellow' vector-effect='non-scaling-stroke' fill='none' d='M" + d.join("L") + "Z" + "'/>";
-    //return "<path stroke-width='1' fill='none' stroke='black' d='M" + d.join("L") + "Z" + "'/>";
   }
 
-  var voronoi = d3.geom.voronoi(); //.clipExtent([[0, 0], [width, height]]);
+  var voronoi = d3.geom.voronoi();
 
   var polygons = voronoi(vertices);
-  //var clippedPolygons = polygons; //polygons.map(clipPolygons)
   var clippedPolygons = polygons.map(clipPolygons).filter(function(p) { return p.length > 0});
   clippedPolygons = clippedPolygons.map(flipY);
   var clippedPolygonPaths = clippedPolygons.map(polygonPath);
-
-  //var clipperPath = highlightedPolygonPath(shapePolygon);
 
   var svg = [
     '<?xml version="1.0" standalone="no"?>',
