@@ -3,6 +3,7 @@ var properties = [
 ];
 
 var executor = function(args, success, failure) {
+  var scale = 32768;
   var propertyParams = args[0];
   var shapeParams = args[1];
   var left = shapeParams.left;
@@ -19,10 +20,41 @@ var executor = function(args, success, failure) {
   });
 
   var shapePolygon = shapeParams.pointArrays[0];
-  var clipPolygon = d3.geom.polygon(shapePolygon.slice().reverse());
+  //var clipPolygon = d3.geom.polygon(shapePolygon.slice().reverse());
+  var clipPolygon = shapePolygon.slice(); //.reverse();
 
-  var clipPolygons = function(polygon) {
-    return clipPolygon.clip(polygon);
+  var fabricToClipperPolygon = function(polygon) {
+    return polygon.map(function(point) {
+      return {X: point[0] * scale, Y: point[1] * scale};
+    });
+  };
+
+  var clipperToFabricPolygon = function(polygon) {
+    return polygon.map(function(point) {
+      return [point.X / scale, point.Y / scale];
+    });
+  };
+
+  var boolean = function(operation, subjectPolygons, clipPolygons) {
+    var cpr = new ClipperLib.Clipper();
+
+    var clipperSubject = subjectPolygons.map(fabricToClipperPolygon);
+    cpr.AddPaths(clipperSubject, ClipperLib.PolyType.ptSubject, true);
+
+    var clipperClip = clipPolygons.map(fabricToClipperPolygon);
+    cpr.AddPaths(clipperClip, ClipperLib.PolyType.ptClip, true);
+
+    var subject_fillType = ClipperLib.PolyFillType.pftNonZero;
+    var clip_fillType = ClipperLib.PolyFillType.pftNonZero;
+    cpr.Execute(operation, clipperSubject, subject_fillType, clip_fillType);
+
+    return clipperSubject.map(clipperToFabricPolygon);
+  };
+
+  var clipPolygons = function(polygons) {
+    return boolean(ClipperLib.ClipType.ctIntersection, polygons, [clipPolygon]);
+
+    //return clipPolygon.clip(polygon);
   };
 
   var flipY = function(polygon) {
@@ -32,7 +64,7 @@ var executor = function(args, success, failure) {
   };
 
   var polygonPath = function(d) {
-    return "<path d='M" + d.join("L") + "Z" + "'/>";
+    return "<path stroke-width='1' stroke='black' vector-effect='non-scaling-stroke' fill='none' d='M" + d.join("L") + "Z" + "'/>";
   }
 
   var highlightedPolygonPath = function(d) {
@@ -42,7 +74,8 @@ var executor = function(args, success, failure) {
   var voronoi = d3.geom.voronoi();
 
   var polygons = voronoi(vertices);
-  var clippedPolygons = polygons.map(clipPolygons).filter(function(p) { return p.length > 0});
+  var clippedPolygons = clipPolygons(polygons)
+  clippedPolygons = clippedPolygons.filter(function(p) { return p.length > 0});
   clippedPolygons = clippedPolygons.map(flipY);
   var clippedPolygonPaths = clippedPolygons.map(polygonPath);
 
