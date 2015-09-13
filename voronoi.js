@@ -20,8 +20,7 @@ var executor = function(args, success, failure) {
   });
 
   var shapePolygon = shapeParams.pointArrays[0];
-  //var clipPolygon = d3.geom.polygon(shapePolygon.slice().reverse());
-  var clipPolygon = shapePolygon.slice(); //.reverse();
+  var clipPolygon = shapePolygon.slice();
 
   var fabricToClipperPolygon = function(polygon) {
     return polygon.map(function(point) {
@@ -36,25 +35,31 @@ var executor = function(args, success, failure) {
   };
 
   var boolean = function(operation, subjectPolygons, clipPolygons) {
-    var cpr = new ClipperLib.Clipper();
-
     var clipperSubject = subjectPolygons.map(fabricToClipperPolygon);
-    cpr.AddPaths(clipperSubject, ClipperLib.PolyType.ptSubject, true);
-
     var clipperClip = clipPolygons.map(fabricToClipperPolygon);
-    cpr.AddPaths(clipperClip, ClipperLib.PolyType.ptClip, true);
 
-    var subject_fillType = ClipperLib.PolyFillType.pftNonZero;
-    var clip_fillType = ClipperLib.PolyFillType.pftNonZero;
-    cpr.Execute(operation, clipperSubject, subject_fillType, clip_fillType);
+    var solutions = [];
+    // we have to perform intersection for each polygon seperately. Seems, clipper combine
+    // all polygons and conclude subject polygons overlap and cover the almost the entire
+    // region where voronoi was defined (i.e. left, right, top, bottom). tiny regions could be left
+    // out due to numerical precision.
+    // so the intersection might be leaving out above tiny regions and that should be what we saw.
 
-    return clipperSubject.map(clipperToFabricPolygon);
+    // Furthermore, all resultant polygons also overlap. Hence tabs won't work (You may have already knew about it)
+    for (var i = 0; i < clipperSubject.length; i++) {
+      var cpr = new ClipperLib.Clipper();
+      subjectPolygon = clipperSubject[i];
+      var solution = new ClipperLib.Paths();
+      cpr.AddPath(subjectPolygon, ClipperLib.PolyType.ptSubject, true);
+      cpr.AddPaths(clipperClip, ClipperLib.PolyType.ptClip, true);
+      cpr.Execute(operation, solution);
+      solutions = solutions.concat(solution.map(clipperToFabricPolygon));
+    }
+    return solutions;
   };
 
   var clipPolygons = function(polygons) {
     return boolean(ClipperLib.ClipType.ctIntersection, polygons, [clipPolygon]);
-
-    //return clipPolygon.clip(polygon);
   };
 
   var flipY = function(polygon) {
@@ -64,17 +69,13 @@ var executor = function(args, success, failure) {
   };
 
   var polygonPath = function(d) {
-    return "<path stroke-width='1' stroke='black' vector-effect='non-scaling-stroke' fill='none' d='M" + d.join("L") + "Z" + "'/>";
-  }
-
-  var highlightedPolygonPath = function(d) {
-    return "<path stroke-width='1' stroke='yellow' vector-effect='non-scaling-stroke' fill='none' d='M" + d.join("L") + "Z" + "'/>";
+    return "<path stroke-width='1' stroke='#999' vector-effect='non-scaling-stroke' fill='none' d='M" + d.join("L") + "Z" + "'/>";
   }
 
   var voronoi = d3.geom.voronoi();
 
-  var polygons = voronoi(vertices);
-  var clippedPolygons = clipPolygons(polygons)
+  var polygons = voronoi(vertices);;
+  var clippedPolygons = clipPolygons(polygons);
   clippedPolygons = clippedPolygons.filter(function(p) { return p.length > 0});
   clippedPolygons = clippedPolygons.map(flipY);
   var clippedPolygonPaths = clippedPolygons.map(polygonPath);
