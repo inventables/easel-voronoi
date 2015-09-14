@@ -85,7 +85,7 @@ var executor = function(args, success, failure) {
 
   var svg = [
     '<?xml version="1.0" standalone="no"?>',
-    '<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="500px" height="500px"',
+    '<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="' + width + 'in" height="' + height + 'in"',
     ' viewBox="' + left + ' ' + bottom + ' ' + width + ' ' + height + '">',
     clippedPolygonPath,
     '</svg>'
