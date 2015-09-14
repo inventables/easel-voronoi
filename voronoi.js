@@ -68,26 +68,23 @@ var executor = function(args, success, failure) {
     });
   };
 
-  var polygonMoves = function(d) {
-    return "M" + d.join("L") + "Z";
-  };
-
-  var polygonPath = function(polygons) {
-    return "<path stroke-width='1' stroke='#999' vector-effect='non-scaling-stroke' fill='none' d='" + polygons.map(polygonMoves).join(" ") + "'/>";
-  };
+  var polygonPath = function(d) {
+    return "<path stroke-width='1' stroke='#999' vector-effect='non-scaling-stroke' fill='none' d='M" + d.join("L") + "Z" + "'/>";
+  }
 
   var voronoi = d3.geom.voronoi();
-  var polygons = voronoi(vertices);
+
+  var polygons = voronoi(vertices);;
   var clippedPolygons = clipPolygons(polygons);
   clippedPolygons = clippedPolygons.filter(function(p) { return p.length > 0});
   clippedPolygons = clippedPolygons.map(flipY);
-  var clippedPolygonPath = polygonPath(clippedPolygons);
+  var clippedPolygonPaths = clippedPolygons.map(polygonPath);
 
   var svg = [
     '<?xml version="1.0" standalone="no"?>',
     '<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="' + width + 'in" height="' + height + 'in"',
     ' viewBox="' + left + ' ' + bottom + ' ' + width + ' ' + height + '">',
-    clippedPolygonPath,
+    clippedPolygonPaths.join(""),
     '</svg>'
   ].join("");
 
