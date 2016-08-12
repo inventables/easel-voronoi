@@ -3,9 +3,9 @@ var properties = [
 ];
 
 var executor = function(args, success, failure) {
-  var propertyParams = args.params;
-
-  var pointCount = propertyParams["Patches"];
+  var notnull = function(o) {
+    return o !== null;
+  }
 
   var getSelectedVolumes = function(volumes, selectedVolumeIds) {
     var selectedVolumes = [];
@@ -18,25 +18,6 @@ var executor = function(args, success, failure) {
     }
     return selectedVolumes;
   };
-
-  var selectedVolumes = getSelectedVolumes(args.volumes, args.selectedVolumeIds);
-
-  var firstShapeDepth = selectedVolumes[0].cut.depth;
-
-  var right = EASEL.volumeHelper.boundingBoxRight(selectedVolumes);
-  var left = EASEL.volumeHelper.boundingBoxLeft(selectedVolumes);
-  var top = EASEL.volumeHelper.boundingBoxTop(selectedVolumes);
-  var bottom = EASEL.volumeHelper.boundingBoxBottom(selectedVolumes);
-  var width = right - left;
-  var height = top - bottom;
-
-  var vertices = d3.range(pointCount).map(function(d) {
-    return [Math.random() * width + left, Math.random() * height + bottom];
-  });
-
-  var voronoi = d3.voronoi().extent([[left, bottom], [right, top]]);
-  var diagram = voronoi(vertices);
-  var polygons = diagram.polygons().filter(function(p) { return p !== null; });
 
   var pointsToPolygonVolume = function(points) {
     var volumePoints = points.map(function(p) {
@@ -77,8 +58,78 @@ var executor = function(args, success, failure) {
     };
   };
 
-  var polygonVolumes = polygons.map(pointsToPolygonVolume);
+  var clippedVoronoiVolumes = function(voronoiVolumes) {
+    var closeVolume = function(pathVolume) {
+      var firstPoint, lastPoint, points;
 
-  success(polygonVolumes);
+      if (pathVolume.shape.points.length != 1) {
+        return pathVolume;
+      }
+
+      points = pathVolume.shape.points[0];
+
+      if (points.length < 2) {
+        return pathVolume;
+      }
+
+      firstPoint = points[0];
+      lastPoint = points[points.length - 1];
+
+      if (firstPoint.x !== lastPoint.x || firstPoint.y !== lastPoint.y || firstPoint.lh !== lastPoint.lh || firstPoint.rh !== lastPoint.rh) {
+        points.push(firstPoint);
+      }
+
+      return pathVolume;
+    }
+
+    var intersect = function(voronoiVolumes, selectedVolumes) {
+      var solutions = [];
+      var clipVolume;
+
+      var clippedVolumes = voronoiVolumes.map(function(voronoiVolume) {
+        clipVolume = EASEL.volumeHelper.intersect(selectedVolumes, [voronoiVolume]);
+        if (clipVolume !== null) {
+          clipVolume.cut = {
+            type: "outline",
+            outlineStyle: "on-path",
+            tabPreference: false,
+            depth: firstShapeDepth
+          };
+        }
+        return clipVolume;
+      });
+
+      return clippedVolumes.filter(notnull).map(closeVolume);
+    }
+
+    return intersect(voronoiVolumes, selectedVolumes);
+  };
+
+  var propertyParams = args.params;
+  var pointCount = propertyParams["Patches"];
+
+  var selectedVolumes = getSelectedVolumes(args.volumes, args.selectedVolumeIds);
+  var firstShapeDepth = selectedVolumes[0].cut.depth;
+
+  var right = EASEL.volumeHelper.boundingBoxRight(selectedVolumes);
+  var left = EASEL.volumeHelper.boundingBoxLeft(selectedVolumes);
+  var top = EASEL.volumeHelper.boundingBoxTop(selectedVolumes);
+  var bottom = EASEL.volumeHelper.boundingBoxBottom(selectedVolumes);
+  var width = right - left;
+  var height = top - bottom;
+
+  var vertices = d3.range(pointCount).map(function(d) {
+    return [Math.random() * width + left, Math.random() * height + bottom];
+  });
+
+  var voronoi = d3.voronoi().extent([[left, bottom], [right, top]]);
+  var diagram = voronoi(vertices);
+  var polygons = diagram.polygons().filter(notnull);
+
+  var voronoiVolumes = polygons.map(pointsToPolygonVolume);
+
+  voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
+
+  success(voronoiVolumes);
 };
 
