@@ -3,8 +3,8 @@ var properties = [
 ];
 
 var executor = function(args, success, failure) {
-  var notnull = function(o) {
-    return o !== null;
+  var exists = function(o) {
+    return o !== null && typeof(o) !== 'undefined';
   }
 
   var getSelectedVolumes = function(volumes, selectedVolumeIds) {
@@ -99,10 +99,43 @@ var executor = function(args, success, failure) {
         return clipVolume;
       });
 
-      return clippedVolumes.filter(notnull).map(closeVolume);
+      return clippedVolumes.filter(exists).map(closeVolume);
     }
 
     return intersect(voronoiVolumes, selectedVolumes);
+  };
+
+  var makePathFromEdges = function(edges) {
+    var subPaths = edges.filter(exists).map(function(edge) {
+      return [
+        {x: edge[0][0], y: edge[0][1]},
+        {x: edge[1][0], y: edge[1][1]}
+      ];
+    });
+
+    return {
+      shape: {
+        type: "path",
+        flipping: {
+          x: false,
+          y: false
+        },
+        points: subPaths,
+        center: {
+          x: (left + right) / 2,
+          y: (bottom + top) / 2
+        },
+        width: right - left,
+        height: top - bottom,
+        rotation: 0
+      },
+      cut: {
+        type: "outline",
+        outlineStyle: "on-path",
+        tabPreference: false,
+        depth: firstShapeDepth
+      }
+    };
   };
 
   var propertyParams = args.params;
@@ -124,12 +157,15 @@ var executor = function(args, success, failure) {
 
   var voronoi = d3.voronoi().extent([[left, bottom], [right, top]]);
   var diagram = voronoi(vertices);
-  var polygons = diagram.polygons().filter(notnull);
+  var voronoiPathVolume = makePathFromEdges(diagram.edges);
 
-  var voronoiVolumes = polygons.map(pointsToPolygonVolume);
+  //var polygons = diagram.polygons().filter(exists);
 
-  voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
+  //var voronoiVolumes = polygons.map(pointsToPolygonVolume);
 
-  success(voronoiVolumes);
+  //voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
+
+  //success(voronoiVolumes);
+  success([voronoiPathVolume]);
 };
 
