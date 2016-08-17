@@ -105,38 +105,98 @@ var executor = function(args, success, failure) {
     return intersect(voronoiVolumes, selectedVolumes);
   };
 
-  var makePathFromEdges = function(edges) {
-    var subPaths = edges.filter(exists).map(function(edge) {
-      return [
-        {x: edge[0][0], y: edge[0][1]},
-        {x: edge[1][0], y: edge[1][1]}
-      ];
+  var roundCoordinate = function(val) {
+    return Math.floor(val * 100000);
+  };
+
+  var removeCoincidentLines = function(voronoiVolumes) {
+    var startingKeys = {};
+
+    voronoiVolumes = voronoiVolumes.map(function(volume) {
+      var points = volume.shape.points[0]
+
+      var previousPoint = null;
+      var goodPoints = [];
+      var subPaths = [];
+
+      points.forEach(function(point) {
+        if (previousPoint !== null) {
+          var startingKey = roundCoordinate(previousPoint.x) + ":" + roundCoordinate(previousPoint.y);
+          var endingKeys = claimedSegments[startingKey];
+
+          if (typeof endingKeys === 'undefined') {
+            endingKeys = claimedSegments[startingKey] = {};
+          }
+
+          var endingKey = roundCoordinate(point.x) + ":" + roundCoordinate(point.y);
+          if (endingKeys[endingKey]) {
+            // Already have segment
+            if (goodPoints.length > 0) {
+              subPaths.push(goodPoints);
+
+              previousPoint = null;
+              goodPoints = [];
+            }
+          } else {
+            // New segment, keep it & mark it
+            if (goodPoints.length === 0) {
+              goodPoints.push(previousPoint);
+            }
+            goodPoints.push(point);
+            endingKeys[endingKey] = true;
+          }
+        }
+        previousPoint = point;
+      });
+
+      if (goodPoints.length === points.length) {
+        return volume; // Entire polygon is new, just keep it as is
+      } else if (subPaths.length === 0) {
+        // Entire polygon is a dup, throw it out
+        return null;
+      } else {
+        // Polygon has some new segments and some duplicated segments
+        volume.shape.points = subPaths;
+        return volume;
+      }
+
     });
 
-    return {
-      shape: {
-        type: "path",
-        flipping: {
-          x: false,
-          y: false
-        },
-        points: subPaths,
-        center: {
-          x: (left + right) / 2,
-          y: (bottom + top) / 2
-        },
-        width: right - left,
-        height: top - bottom,
-        rotation: 0
-      },
-      cut: {
-        type: "outline",
-        outlineStyle: "on-path",
-        tabPreference: false,
-        depth: firstShapeDepth
-      }
-    };
+    return voronoiVolumes.filter(exists);
   };
+
+  //var makePathFromEdges = function(edges) {
+  //  var subPaths = edges.filter(exists).map(function(edge) {
+  //    return [
+  //      {x: edge[0][0], y: edge[0][1]},
+  //      {x: edge[1][0], y: edge[1][1]}
+  //    ];
+  //  });
+
+  //  return {
+  //    shape: {
+  //      type: "path",
+  //      flipping: {
+  //        x: false,
+  //        y: false
+  //      },
+  //      points: subPaths,
+  //      center: {
+  //        x: (left + right) / 2,
+  //        y: (bottom + top) / 2
+  //      },
+  //      width: right - left,
+  //      height: top - bottom,
+  //      rotation: 0
+  //    },
+  //    cut: {
+  //      type: "outline",
+  //      outlineStyle: "on-path",
+  //      tabPreference: false,
+  //      depth: firstShapeDepth
+  //    }
+  //  };
+  //};
 
   var propertyParams = args.params;
   var pointCount = propertyParams["Patches"];
@@ -157,15 +217,15 @@ var executor = function(args, success, failure) {
 
   var voronoi = d3.voronoi().extent([[left, bottom], [right, top]]);
   var diagram = voronoi(vertices);
-  var voronoiPathVolume = makePathFromEdges(diagram.edges);
+  //var voronoiPathVolume = makePathFromEdges(diagram.edges);
 
-  //var polygons = diagram.polygons().filter(exists);
+  var polygons = diagram.polygons().filter(exists);
 
-  //var voronoiVolumes = polygons.map(pointsToPolygonVolume);
+  var voronoiVolumes = polygons.map(pointsToPolygonVolume);
+  voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
+  //voronoiVolumes = removeCoincidentLines(voronoiVolumes);
 
-  //voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
-
-  //success(voronoiVolumes);
-  success([voronoiPathVolume]);
+  success(voronoiVolumes);
+  //success([voronoiPathVolume]);
 };
 
