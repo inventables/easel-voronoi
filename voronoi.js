@@ -1,5 +1,5 @@
 var properties = [
-  {type: 'range', id: "Patches", value: 100, min: 3, max: 500, step: 1}
+  {type: 'range', id: "Patches", value: 10, min: 3, max: 100, step: 1}
 ];
 
 var executor = function(args, success, failure) {
@@ -8,15 +8,9 @@ var executor = function(args, success, failure) {
   }
 
   var getSelectedVolumes = function(volumes, selectedVolumeIds) {
-    var selectedVolumes = [];
-    var volume;
-    for (var i = 0; i < volumes.length; i++) {
-      volume = volumes[i];
-      if (selectedVolumeIds.indexOf(volume.id) !== -1) {
-        selectedVolumes.push(volume);
-      }
-    }
-    return selectedVolumes;
+    return volumes.filter(function(volume) {
+      return selectedVolumeIds.indexOf(volume.id) !== -1;
+    });
   };
 
   var pointsToPolygonVolume = function(points) {
@@ -121,20 +115,19 @@ var executor = function(args, success, failure) {
 
       points.forEach(function(point) {
         if (previousPoint !== null) {
-          var startingKey = roundCoordinate(previousPoint.x) + ":" + roundCoordinate(previousPoint.y);
-          var endingKeys = claimedSegments[startingKey];
+          // Check if the reverse direction has been added already
+          var startingKey = roundCoordinate(point.x) + ":" + roundCoordinate(point.y);
+          var endingKeys = startingKeys[startingKey];
 
           if (typeof endingKeys === 'undefined') {
-            endingKeys = claimedSegments[startingKey] = {};
+            endingKeys = startingKeys[startingKey] = {};
           }
 
-          var endingKey = roundCoordinate(point.x) + ":" + roundCoordinate(point.y);
+          var endingKey = roundCoordinate(previousPoint.x) + ":" + roundCoordinate(previousPoint.y);
           if (endingKeys[endingKey]) {
             // Already have segment
             if (goodPoints.length > 0) {
               subPaths.push(goodPoints);
-
-              previousPoint = null;
               goodPoints = [];
             }
           } else {
@@ -143,60 +136,41 @@ var executor = function(args, success, failure) {
               goodPoints.push(previousPoint);
             }
             goodPoints.push(point);
-            endingKeys[endingKey] = true;
+
+            endingKeys = startingKeys[endingKey];
+            if (typeof endingKeys === 'undefined') {
+              endingKeys = startingKeys[endingKey] = {};
+            }
+
+            endingKeys[startingKey] = true;
           }
         }
         previousPoint = point;
       });
 
-      if (goodPoints.length === points.length) {
-        return volume; // Entire polygon is new, just keep it as is
-      } else if (subPaths.length === 0) {
+      if (goodPoints.length !== 0) {
+        subPaths.push(goodPoints);
+      }
+
+      var newVolume;
+
+      if (subPaths.length === 0) {
         // Entire polygon is a dup, throw it out
-        return null;
+        newVolume = null;
       } else {
         // Polygon has some new segments and some duplicated segments
         volume.shape.points = subPaths;
-        return volume;
+        newVolume = volume;
       }
 
+      // Get correct size and position of new volume
+      newVolume.shape = EASEL.pathUtils.fromPointArrays(newVolume.shape.points).shape;
+
+      return newVolume;
     });
 
     return voronoiVolumes.filter(exists);
   };
-
-  //var makePathFromEdges = function(edges) {
-  //  var subPaths = edges.filter(exists).map(function(edge) {
-  //    return [
-  //      {x: edge[0][0], y: edge[0][1]},
-  //      {x: edge[1][0], y: edge[1][1]}
-  //    ];
-  //  });
-
-  //  return {
-  //    shape: {
-  //      type: "path",
-  //      flipping: {
-  //        x: false,
-  //        y: false
-  //      },
-  //      points: subPaths,
-  //      center: {
-  //        x: (left + right) / 2,
-  //        y: (bottom + top) / 2
-  //      },
-  //      width: right - left,
-  //      height: top - bottom,
-  //      rotation: 0
-  //    },
-  //    cut: {
-  //      type: "outline",
-  //      outlineStyle: "on-path",
-  //      tabPreference: false,
-  //      depth: firstShapeDepth
-  //    }
-  //  };
-  //};
 
   var propertyParams = args.params;
   var pointCount = propertyParams["Patches"];
@@ -223,7 +197,7 @@ var executor = function(args, success, failure) {
 
   var voronoiVolumes = polygons.map(pointsToPolygonVolume);
   voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
-  //voronoiVolumes = removeCoincidentLines(voronoiVolumes);
+  voronoiVolumes = removeCoincidentLines(voronoiVolumes);
 
   success(voronoiVolumes);
   //success([voronoiPathVolume]);
