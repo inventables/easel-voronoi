@@ -1,6 +1,14 @@
+// Cut Branches or Cut Patches
+// Branch Diameter
+//   - 1x bit diameter
+//   - 1.5x bit diameter
+//   - 2x bit diameter
+//   - 2.5x bit diameter
+
 var properties = [
   {type: 'range', id: "Patches", value: 10, min: 3, max: 100, step: 1},
-  {type: 'boolean', id: "Single path", value: false}
+  {type: 'list', id: "Cut", options: ["Branches", "Patches"], value: "Branches"},
+  {type: 'range', id: "Branch Size (x bit dia.)", value: 1, min: 1, max: 4, step: 0.5}
 ];
 
 var executor = function(args, success, failure) {
@@ -23,7 +31,7 @@ var executor = function(args, success, failure) {
     return EASEL.pathUtils.fromPointArrays([volumePoints]);
   };
 
-  var clippedVoronoiVolumes = function(voronoiVolumes) {
+  var clippedVoronoiVolumes = function(voronoiVolumes, selectedVolumes) {
     var closeVolume = function(pathVolume) {
       var firstPoint, lastPoint, points;
 
@@ -42,6 +50,7 @@ var executor = function(args, success, failure) {
     }
 
     var intersect = function(voronoiVolumes, selectedVolumes) {
+      var firstShapeDepth = selectedVolumes[0].cut.depth;
       var solutions = [];
       var clipVolume;
 
@@ -148,37 +157,39 @@ var executor = function(args, success, failure) {
     return voronoiVolumes.filter(exists);
   };
 
-  var propertyParams = args.params;
-  var pointCount = propertyParams["Patches"];
+  var generate = function() {
+    var propertyParams = args.params;
+    var pointCount = propertyParams["Patches"];
 
-  var selectedVolumes = getSelectedVolumes(args.volumes, args.selectedVolumeIds);
-  var firstShapeDepth = selectedVolumes[0].cut.depth;
+    var selectedVolumes = getSelectedVolumes(args.volumes, args.selectedVolumeIds);
 
-  var right = EASEL.volumeHelper.boundingBoxRight(selectedVolumes);
-  var left = EASEL.volumeHelper.boundingBoxLeft(selectedVolumes);
-  var top = EASEL.volumeHelper.boundingBoxTop(selectedVolumes);
-  var bottom = EASEL.volumeHelper.boundingBoxBottom(selectedVolumes);
-  var width = right - left;
-  var height = top - bottom;
+    var right = EASEL.volumeHelper.boundingBoxRight(selectedVolumes);
+    var left = EASEL.volumeHelper.boundingBoxLeft(selectedVolumes);
+    var top = EASEL.volumeHelper.boundingBoxTop(selectedVolumes);
+    var bottom = EASEL.volumeHelper.boundingBoxBottom(selectedVolumes);
+    var width = right - left;
+    var height = top - bottom;
 
-  var vertices = d3.range(pointCount).map(function(d) {
-    return [Math.random() * width + left, Math.random() * height + bottom];
-  });
+    var vertices = d3.range(pointCount).map(function(d) {
+      return [Math.random() * width + left, Math.random() * height + bottom];
+    });
 
-  var voronoi = d3.voronoi().extent([[left, bottom], [right, top]]);
-  var diagram = voronoi(vertices);
-  //var voronoiPathVolume = makePathFromEdges(diagram.edges);
+    var voronoi = d3.voronoi().extent([[left, bottom], [right, top]]);
+    var diagram = voronoi(vertices);
+    //var voronoiPathVolume = makePathFromEdges(diagram.edges);
 
-  var polygons = diagram.polygons().filter(exists);
+    var polygons = diagram.polygons().filter(exists);
 
-  var voronoiVolumes = polygons.map(d3PointsToPathVolume);
-  voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
+    var voronoiVolumes = polygons.map(d3PointsToPathVolume);
+    voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes, selectedVolumes);
 
-  if (propertyParams['Single path']) {
-    voronoiVolumes = removeCoincidentLines(voronoiVolumes);
+    if (propertyParams["Cut"] == "Branches" && propertyParams['Branch Size (x bit dia.)']) {
+      voronoiVolumes = removeCoincidentLines(voronoiVolumes);
+    }
+
+    success(voronoiVolumes);
   };
 
-  success(voronoiVolumes);
-  //success([voronoiPathVolume]);
+  generate();
 };
 
