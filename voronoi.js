@@ -1,5 +1,6 @@
 var properties = [
-  {type: 'range', id: "Patches", value: 10, min: 3, max: 100, step: 1}
+  {type: 'range', id: "Patches", value: 10, min: 3, max: 100, step: 1},
+  {type: 'boolean', id: "Single path", value: false}
 ];
 
 var executor = function(args, success, failure) {
@@ -26,23 +27,16 @@ var executor = function(args, success, failure) {
     var closeVolume = function(pathVolume) {
       var firstPoint, lastPoint, points;
 
-      if (pathVolume.shape.points.length != 1) {
-        console.log("Not closing!!");
-        return pathVolume;
-      }
+      pathVolume.shape.points.forEach(function(points) {
+        if (points.length > 1) {
+          firstPoint = points[0];
+          lastPoint = points[points.length - 1];
 
-      points = pathVolume.shape.points[0];
-
-      if (points.length < 2) {
-        return pathVolume;
-      }
-
-      firstPoint = points[0];
-      lastPoint = points[points.length - 1];
-
-      if (firstPoint.x !== lastPoint.x || firstPoint.y !== lastPoint.y || firstPoint.lh !== lastPoint.lh || firstPoint.rh !== lastPoint.rh) {
-        points.push(firstPoint);
-      }
+          if (firstPoint.x !== lastPoint.x || firstPoint.y !== lastPoint.y || firstPoint.lh !== lastPoint.lh || firstPoint.rh !== lastPoint.rh) {
+            points.push(firstPoint);
+          }
+        }
+      });
 
       return pathVolume;
     }
@@ -103,44 +97,49 @@ var executor = function(args, success, failure) {
     var segments = segmentCache();
 
     voronoiVolumes = voronoiVolumes.map(function(volume) {
-      var points = volume.shape.points[0]
+      var newSubPaths = [];
 
-      var previousPoint = null;
-      var goodPoints = [];
-      var subPaths = [];
+      volume.shape.points.forEach(function(points) {
+        var previousPoint = null;
+        var goodPoints = [];
+        var subPaths = [];
 
-      points.forEach(function(point) {
-        if (previousPoint !== null) {
-          // Check if the reverse direction has been added already
-          if (segments.has(point, previousPoint)) {
-            // Already have segment
-            if (goodPoints.length > 0) {
-              subPaths.push(goodPoints);
-              goodPoints = [];
+        points.forEach(function(point) {
+          if (previousPoint !== null) {
+            // Check if the reverse direction has been added already
+            if (segments.has(point, previousPoint)) {
+              // Already have segment
+              if (goodPoints.length > 0) {
+                subPaths.push(goodPoints);
+                goodPoints = [];
+              }
+            } else {
+              // New segment, keep it & mark it
+              if (goodPoints.length === 0) {
+                goodPoints.push(previousPoint);
+              }
+              goodPoints.push(point);
+
+              segments.put(previousPoint, point);
             }
-          } else {
-            // New segment, keep it & mark it
-            if (goodPoints.length === 0) {
-              goodPoints.push(previousPoint);
-            }
-            goodPoints.push(point);
-
-            segments.put(previousPoint, point);
           }
+          previousPoint = point;
+        });
+
+        if (goodPoints.length !== 0) {
+          subPaths.push(goodPoints);
         }
-        previousPoint = point;
+
+        if (subPaths.length > 0) {
+          // Polygon has some new segments and some duplicated segments
+          newSubPaths = newSubPaths.concat(subPaths);
+        }
       });
 
-      if (goodPoints.length !== 0) {
-        subPaths.push(goodPoints);
-      }
-
-      if (subPaths.length === 0) {
-        // Entire polygon is a dup, throw it out
+      if (newSubPaths.length === 0) {
         return null;
       } else {
-        // Polygon has some new segments and some duplicated segments
-        volume.shape = EASEL.pathUtils.fromPointArrays(subPaths).shape;
+        volume.shape = EASEL.pathUtils.fromPointArrays(newSubPaths).shape;
 
         return volume;
       }
@@ -174,7 +173,10 @@ var executor = function(args, success, failure) {
 
   var voronoiVolumes = polygons.map(d3PointsToPathVolume);
   voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
-  voronoiVolumes = removeCoincidentLines(voronoiVolumes);
+
+  if (propertyParams['Single path']) {
+    voronoiVolumes = removeCoincidentLines(voronoiVolumes);
+  };
 
   success(voronoiVolumes);
   //success([voronoiPathVolume]);
