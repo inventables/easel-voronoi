@@ -3,6 +3,8 @@ var properties = [
 ];
 
 var executor = function(args, success, failure) {
+  // Helper functions
+  // ----------------
   var exists = function(o) {
     return o !== null && typeof(o) !== 'undefined';
   }
@@ -13,43 +15,14 @@ var executor = function(args, success, failure) {
     });
   };
 
-  var pointsToPolygonVolume = function(points) {
+
+  var d3PointsToPolygonVolume = function(points) {
     var volumePoints = points.map(function(p) {
       return {x: p[0], y: p[1]};
     });
+    volumePoints.push(volumePoints[0]);
 
-    var getX = function(d) { return d.x; }
-    var getY = function(d) { return d.y; }
-
-    var xMin = d3.min(volumePoints, getX);
-    var xMax = d3.max(volumePoints, getX);
-
-    var yMin = d3.min(volumePoints, getY);
-    var yMax = d3.max(volumePoints, getY);
-  
-    return {
-      shape: {
-        type: "polygon",
-        flipping: {
-          x: false,
-          y: false
-        },
-        points: volumePoints,
-        center: {
-          x: (xMin + xMax) / 2,
-          y: (yMin + yMax) / 2
-        },
-        width: xMax - xMin,
-        height: yMax - yMin,
-        rotation: 0
-      },
-      cut: {
-        type: "outline",
-        outlineStyle: "on-path",
-        tabPreference: false,
-        depth: firstShapeDepth
-      }
-    };
+    return EASEL.pathUtils.fromPointArrays([volumePoints]);
   };
 
   var clippedVoronoiVolumes = function(voronoiVolumes) {
@@ -152,21 +125,15 @@ var executor = function(args, success, failure) {
         subPaths.push(goodPoints);
       }
 
-      var newVolume;
-
       if (subPaths.length === 0) {
         // Entire polygon is a dup, throw it out
-        newVolume = null;
+        return null;
       } else {
         // Polygon has some new segments and some duplicated segments
-        volume.shape.points = subPaths;
-        newVolume = volume;
+        volume.shape = EASEL.pathUtils.fromPointArrays(subPaths).shape;
+
+        return volume;
       }
-
-      // Get correct size and position of new volume
-      newVolume.shape = EASEL.pathUtils.fromPointArrays(newVolume.shape.points).shape;
-
-      return newVolume;
     });
 
     return voronoiVolumes.filter(exists);
@@ -195,7 +162,7 @@ var executor = function(args, success, failure) {
 
   var polygons = diagram.polygons().filter(exists);
 
-  var voronoiVolumes = polygons.map(pointsToPolygonVolume);
+  var voronoiVolumes = polygons.map(d3PointsToPolygonVolume);
   voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
   voronoiVolumes = removeCoincidentLines(voronoiVolumes);
 
