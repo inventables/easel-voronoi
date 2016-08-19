@@ -3,8 +3,6 @@ var properties = [
 ];
 
 var executor = function(args, success, failure) {
-  // Helper functions
-  // ----------------
   var exists = function(o) {
     return o !== null && typeof(o) !== 'undefined';
   }
@@ -15,8 +13,7 @@ var executor = function(args, success, failure) {
     });
   };
 
-
-  var d3PointsToPolygonVolume = function(points) {
+  var d3PointsToPathVolume = function(points) {
     var volumePoints = points.map(function(p) {
       return {x: p[0], y: p[1]};
     });
@@ -73,6 +70,7 @@ var executor = function(args, success, failure) {
     return intersect(voronoiVolumes, selectedVolumes);
   };
 
+  // An object to help identify coincident line segments
   var segmentCache = function() {
     var segments = {};
 
@@ -174,7 +172,7 @@ var executor = function(args, success, failure) {
 
   var polygons = diagram.polygons().filter(exists);
 
-  var voronoiVolumes = polygons.map(d3PointsToPolygonVolume);
+  var voronoiVolumes = polygons.map(d3PointsToPathVolume);
   voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes);
   voronoiVolumes = removeCoincidentLines(voronoiVolumes);
 
