@@ -30,6 +30,7 @@ var executor = function(args, success, failure) {
       var firstPoint, lastPoint, points;
 
       if (pathVolume.shape.points.length != 1) {
+        console.log("Not closing!!");
         return pathVolume;
       }
 
@@ -77,7 +78,7 @@ var executor = function(args, success, failure) {
   };
 
   var removeCoincidentLines = function(voronoiVolumes) {
-    var startingKeys = {};
+    var segments = {};
 
     voronoiVolumes = voronoiVolumes.map(function(volume) {
       var points = volume.shape.points[0]
@@ -89,15 +90,10 @@ var executor = function(args, success, failure) {
       points.forEach(function(point) {
         if (previousPoint !== null) {
           // Check if the reverse direction has been added already
-          var startingKey = roundCoordinate(point.x) + ":" + roundCoordinate(point.y);
-          var endingKeys = startingKeys[startingKey];
+          var pointStr = roundCoordinate(point.x) + ":" + roundCoordinate(point.y);
+          var previousPointStr = roundCoordinate(previousPoint.x) + ":" + roundCoordinate(previousPoint.y);
 
-          if (typeof endingKeys === 'undefined') {
-            endingKeys = startingKeys[startingKey] = {};
-          }
-
-          var endingKey = roundCoordinate(previousPoint.x) + ":" + roundCoordinate(previousPoint.y);
-          if (endingKeys[endingKey]) {
+          if (segments[pointStr + "-" + previousPointStr]) {
             // Already have segment
             if (goodPoints.length > 0) {
               subPaths.push(goodPoints);
@@ -110,12 +106,7 @@ var executor = function(args, success, failure) {
             }
             goodPoints.push(point);
 
-            endingKeys = startingKeys[endingKey];
-            if (typeof endingKeys === 'undefined') {
-              endingKeys = startingKeys[endingKey] = {};
-            }
-
-            endingKeys[startingKey] = true;
+            segments[previousPointStr + "-" + pointStr] = true;
           }
         }
         previousPoint = point;
