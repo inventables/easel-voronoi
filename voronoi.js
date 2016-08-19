@@ -14,7 +14,7 @@ var properties = [
 var executor = function(args, success, failure) {
   var exists = function(o) {
     return o !== null && typeof(o) !== 'undefined';
-  }
+  };
 
   var getSelectedVolumes = function(volumes, selectedVolumeIds) {
     return volumes.filter(function(volume) {
@@ -40,14 +40,15 @@ var executor = function(args, success, failure) {
           firstPoint = points[0];
           lastPoint = points[points.length - 1];
 
-          if (firstPoint.x !== lastPoint.x || firstPoint.y !== lastPoint.y || firstPoint.lh !== lastPoint.lh || firstPoint.rh !== lastPoint.rh) {
+          if (firstPoint.x !== lastPoint.x || firstPoint.y !== lastPoint.y
+              || firstPoint.lh !== lastPoint.lh || firstPoint.rh !== lastPoint.rh) {
             points.push(firstPoint);
           }
         }
       });
 
       return pathVolume;
-    }
+    };
 
     var intersect = function(voronoiVolumes, selectedVolumes) {
       var firstShapeDepth = selectedVolumes[0].cut.depth;
@@ -68,7 +69,7 @@ var executor = function(args, success, failure) {
       });
 
       return clippedVolumes.filter(exists).map(closeVolume);
-    }
+    };
 
     return intersect(voronoiVolumes, selectedVolumes);
   };
@@ -85,7 +86,7 @@ var executor = function(args, success, failure) {
 
     var partialKey = function(point) {
       return roundCoordinate(point.x) + ":" + roundCoordinate(point.y);
-    }
+    };
 
     var key = function(p1, p2) {
       return partialKey(p1) + "-" + partialKey(p2);
@@ -157,30 +158,31 @@ var executor = function(args, success, failure) {
     return voronoiVolumes.filter(exists);
   };
 
+  var d3VoronoiPolygons = function(pointCount, boundingBox) {
+    var vertices = d3.range(pointCount).map(function(d) {
+      return [
+        Math.random() * boundingBox.width + boundingBox.left,
+        Math.random() * boundingBox.height + boundingBox.bottom
+      ];
+    });
+
+    var voronoi = d3.voronoi().extent(
+      [
+        [boundingBox.left, boundingBox.bottom],
+        [boundingBox.right, boundingBox.top]
+      ]
+    );
+
+    return voronoi(vertices).polygons().filter(exists);
+  };
+
   var generate = function() {
     var propertyParams = args.params;
     var pointCount = propertyParams["Patches"];
-
     var selectedVolumes = getSelectedVolumes(args.volumes, args.selectedVolumeIds);
+    var d3Polygons = d3VoronoiPolygons(pointCount, EASEL.volumeHelper.boundingBox(selectedVolumes));
+    var voronoiVolumes = d3Polygons.map(d3PointsToPathVolume);
 
-    var right = EASEL.volumeHelper.boundingBoxRight(selectedVolumes);
-    var left = EASEL.volumeHelper.boundingBoxLeft(selectedVolumes);
-    var top = EASEL.volumeHelper.boundingBoxTop(selectedVolumes);
-    var bottom = EASEL.volumeHelper.boundingBoxBottom(selectedVolumes);
-    var width = right - left;
-    var height = top - bottom;
-
-    var vertices = d3.range(pointCount).map(function(d) {
-      return [Math.random() * width + left, Math.random() * height + bottom];
-    });
-
-    var voronoi = d3.voronoi().extent([[left, bottom], [right, top]]);
-    var diagram = voronoi(vertices);
-    //var voronoiPathVolume = makePathFromEdges(diagram.edges);
-
-    var polygons = diagram.polygons().filter(exists);
-
-    var voronoiVolumes = polygons.map(d3PointsToPathVolume);
     voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes, selectedVolumes);
 
     if (propertyParams["Cut"] == "Branches" && propertyParams['Branch Size (x bit dia.)']) {
