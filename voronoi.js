@@ -8,7 +8,7 @@
 var properties = [
   {type: 'range', id: "Patches", value: 10, min: 3, max: 100, step: 1},
   {type: 'list', id: "Cut", options: ["Branches", "Patches"], value: "Branches"},
-  {type: 'range', id: "Branch Size (x bit dia.)", value: 1, min: 1, max: 4, step: 0.5}
+  {type: 'range', id: "Branch Size", value: 1, min: 1, max: 4, step: 0.5}
 ];
 
 var executor = function(args, success, failure) {
@@ -185,8 +185,18 @@ var executor = function(args, success, failure) {
 
     voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes, selectedVolumes);
 
-    if (propertyParams["Cut"] == "Branches" && propertyParams['Branch Size (x bit dia.)']) {
-      voronoiVolumes = removeCoincidentLines(voronoiVolumes);
+    // Decide how to cut the patterns
+    var branchOffset = propertyParams["Branch Size"];
+    if (branchOffset > 1) {
+      var bitWidth = args.bitParams.bit.width;
+      if (args.bitParams.bit.unit === "mm") {
+        bitWidth *= 0.0393701;
+      }
+      voronoiVolumes = EASEL.volumeHelper.offset(voronoiVolumes, -(branchOffset - 1) * bitWidth).filter(exists);
+    } else {
+      if (propertyParams["Cut"] == "Branches" && branchOffset === 1) {
+        voronoiVolumes = removeCoincidentLines(voronoiVolumes);
+      }
     }
 
     success(voronoiVolumes);
