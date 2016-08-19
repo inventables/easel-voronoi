@@ -4,6 +4,10 @@ var properties = [
   {type: 'range', id: "Branch Size", value: 1, min: 1, max: 4, step: 0.5}
 ];
 
+var state = {
+  previousPointCount: null
+};
+
 var executor = function(args, success, failure) {
   var exists = function(o) {
     return o !== null && typeof(o) !== 'undefined';
@@ -173,9 +177,18 @@ var executor = function(args, success, failure) {
     var propertyParams = args.params;
     var pointCount = propertyParams["Patches"];
     var selectedVolumes = getSelectedVolumes(args.volumes, args.selectedVolumeIds);
-    var d3Polygons = d3VoronoiPolygons(pointCount, EASEL.volumeHelper.boundingBox(selectedVolumes));
-    var voronoiVolumes = d3Polygons.map(d3PointsToPathVolume);
+    var d3Polygons, voronoiVolumes;
 
+    if (state.previousPointCount === null || state.previousPointCount !== pointCount) {
+      d3Polygons = d3VoronoiPolygons(pointCount, EASEL.volumeHelper.boundingBox(selectedVolumes));
+      state.previousD3Polygons = d3Polygons.slice(0);
+    } else {
+      d3Polygons = state.previousD3Polygons;
+    }
+
+    state.previousPointCount = pointCount;
+
+    voronoiVolumes = d3Polygons.map(d3PointsToPathVolume);
     voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes, selectedVolumes);
 
     // Decide how to cut the patterns
