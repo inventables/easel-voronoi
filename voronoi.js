@@ -193,10 +193,22 @@ var executor = function(args, success, failure) {
         bitWidth *= 0.0393701;
       }
       voronoiVolumes = EASEL.volumeHelper.offset(voronoiVolumes, -(branchOffset - 1) * bitWidth).filter(exists);
-    } else {
-      if (propertyParams["Cut"] == "Branches" && branchOffset === 1) {
+    }
+
+    if (propertyParams["Cut"] == "Branches") {
+      if (branchOffset == 1) {
         voronoiVolumes = removeCoincidentLines(voronoiVolumes);
+      } else {
+        voronoiVolumes.forEach(function(volume) {
+          volume.cut.type = "fill";
+          volume.cut.depth = 0;
+        });
+        voronoiVolumes = selectedVolumes.concat(voronoiVolumes);
       }
+    } else {
+      voronoiVolumes.forEach(function(volume) {
+        volume.cut.type = "fill";
+      });
     }
 
     success(voronoiVolumes);
