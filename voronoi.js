@@ -73,12 +73,36 @@ var executor = function(args, success, failure) {
     return intersect(voronoiVolumes, selectedVolumes);
   };
 
-  var roundCoordinate = function(val) {
-    return Math.floor(val * 100000);
+  var segmentCache = function() {
+    var segments = {};
+
+    var that = {};
+
+    var roundCoordinate = function(val) {
+      return Math.floor(val * 100000);
+    };
+
+    var partialKey = function(point) {
+      return roundCoordinate(point.x) + ":" + roundCoordinate(point.y);
+    }
+
+    var key = function(p1, p2) {
+      return partialKey(p1) + "-" + partialKey(p2);
+    };
+
+    that.has = function(p1, p2) {
+      return segments[key(p1, p2)];
+    };
+
+    that.put = function(p1, p2) {
+      segments[key(p1, p2)] = true;
+    };
+
+    return that;
   };
 
   var removeCoincidentLines = function(voronoiVolumes) {
-    var segments = {};
+    var segments = segmentCache();
 
     voronoiVolumes = voronoiVolumes.map(function(volume) {
       var points = volume.shape.points[0]
@@ -90,10 +114,7 @@ var executor = function(args, success, failure) {
       points.forEach(function(point) {
         if (previousPoint !== null) {
           // Check if the reverse direction has been added already
-          var pointStr = roundCoordinate(point.x) + ":" + roundCoordinate(point.y);
-          var previousPointStr = roundCoordinate(previousPoint.x) + ":" + roundCoordinate(previousPoint.y);
-
-          if (segments[pointStr + "-" + previousPointStr]) {
+          if (segments.has(point, previousPoint)) {
             // Already have segment
             if (goodPoints.length > 0) {
               subPaths.push(goodPoints);
@@ -106,7 +127,7 @@ var executor = function(args, success, failure) {
             }
             goodPoints.push(point);
 
-            segments[previousPointStr + "-" + pointStr] = true;
+            segments.put(previousPoint, point);
           }
         }
         previousPoint = point;
