@@ -7,7 +7,7 @@
 
 var properties = [
   {type: 'range', id: "Patches", value: 10, min: 3, max: 100, step: 1},
-  {type: 'list', id: "Cut", options: ["Branches", "Patches"], value: "Branches"},
+  {type: 'list', id: "Cut", options: ["Stroke Branches", "Fill Branches", "Fill Patches"], value: "Branches"},
   {type: 'range', id: "Branch Size", value: 1, min: 1, max: 4, step: 0.5}
 ];
 
@@ -195,20 +195,22 @@ var executor = function(args, success, failure) {
       voronoiVolumes = EASEL.volumeHelper.offset(voronoiVolumes, -(branchOffset - 1) * bitWidth).filter(exists);
     }
 
-    if (propertyParams["Cut"] == "Branches") {
-      if (branchOffset == 1) {
-        voronoiVolumes = removeCoincidentLines(voronoiVolumes);
-      } else {
-        voronoiVolumes.forEach(function(volume) {
-          volume.cut.type = "fill";
-          volume.cut.depth = 0;
-        });
-        voronoiVolumes = selectedVolumes.concat(voronoiVolumes);
-      }
-    } else {
+    if (propertyParams["Cut"] == "Fill Patches") {
       voronoiVolumes.forEach(function(volume) {
         volume.cut.type = "fill";
       });
+    } else {
+      if (branchOffset == 1) {
+        voronoiVolumes = removeCoincidentLines(voronoiVolumes);
+      } else {
+        if (propertyParams["Cut"] == "Fill Branches") {
+          voronoiVolumes.forEach(function(volume) {
+            volume.cut.type = "fill";
+            volume.cut.depth = 0;
+          });
+          voronoiVolumes = selectedVolumes.concat(voronoiVolumes);
+        }
+      }
     }
 
     success(voronoiVolumes);
