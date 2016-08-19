@@ -1,10 +1,3 @@
-// Cut Branches or Cut Patches
-// Branch Diameter
-//   - 1x bit diameter
-//   - 1.5x bit diameter
-//   - 2x bit diameter
-//   - 2.5x bit diameter
-
 var properties = [
   {type: 'range', id: "Patches", value: 10, min: 3, max: 100, step: 1},
   {type: 'list', id: "Cut", options: ["Stroke Branches", "Fill Branches", "Fill Patches"], value: "Branches"},
