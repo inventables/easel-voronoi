@@ -191,6 +191,8 @@ var executor = function(args, success, failure) {
     voronoiVolumes = d3Polygons.map(d3PointsToPathVolume);
     voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes, selectedVolumes);
 
+    var updatedVolumes = [];
+
     // Decide how to cut the patterns
     var branchOffset = propertyParams["Branch Size"];
     if (branchOffset > 1) {
@@ -198,12 +200,18 @@ var executor = function(args, success, failure) {
       if (args.bitParams.bit.unit === "mm") {
         bitWidth *= 0.0393701;
       }
-      voronoiVolumes = EASEL.volumeHelper.offset(voronoiVolumes, -(branchOffset - 1) * bitWidth).filter(exists);
+      var offset = (branchOffset - 1) * bitWidth;
+      voronoiVolumes = EASEL.volumeHelper.offset(voronoiVolumes, -offset).filter(exists);
+      updatedVolumes = EASEL.volumeHelper.offset(selectedVolumes, offset).filter(exists); 
     }
 
     if (propertyParams["Cut"] == "Fill Patches") {
       voronoiVolumes.forEach(function(volume) {
         volume.cut.type = "fill";
+      });
+      updatedVolumes.forEach(function(volume) {
+        volume.cut.type = "outline";
+        volume.cut.outlineStyle = "on-path";
       });
     } else {
       if (branchOffset == 1) {
@@ -214,10 +222,22 @@ var executor = function(args, success, failure) {
             volume.cut.type = "fill";
             volume.cut.depth = 0;
           });
-          voronoiVolumes = selectedVolumes.concat(voronoiVolumes);
+          updatedVolumes.forEach(function(volume) {
+            volume.cut.type = "fill";
+          });
+        } else {
+          updatedVolumes.forEach(function(volume) {
+            volume.cut.type = "outline";
+            volume.cut.outlineStyle = "on-path";
+          });
         }
       }
     }
+
+    voronoiVolumes = updatedVolumes.concat(voronoiVolumes);
+    voronoiVolumes = voronoiVolumes.concat(selectedVolumes.map(function(volume) {
+      return {id: volume.id, cut: null, shape: null};
+    }));
 
     success(voronoiVolumes);
   };
