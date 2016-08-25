@@ -208,6 +208,7 @@ var executor = function(args, success, failure) {
     var selectedVolumes = getSelectedVolumes(args.volumes, args.selectedVolumeIds);
     var pointCount = propertyParams["Patches"];
     var d3Polygons = getD3Polygons(pointCount, selectedVolumes);
+
     var voronoiVolumes = d3Polygons.map(d3PointsToPathVolume);
     voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes, selectedVolumes);
 
@@ -231,7 +232,7 @@ var executor = function(args, success, failure) {
       });
       updatedVolumes.forEach(function(volume) {
         volume.cut.type = "outline";
-        volume.cut.outlineStyle = "on-path";
+        volume.cut.outlineStyle = "outside";
       });
     } else {
       if (branchOffset == 1) {
