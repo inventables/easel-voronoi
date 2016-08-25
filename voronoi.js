@@ -28,25 +28,39 @@ var executor = function(args, success, failure) {
     return EASEL.pathUtils.fromPointArrays([volumePoints]);
   };
 
-  var clippedVoronoiVolumes = function(voronoiVolumes, selectedVolumes) {
-    var closeVolume = function(pathVolume) {
-      var firstPoint, lastPoint, points;
+  var closeVolume = function(pathVolume) {
+    var firstPoint, lastPoint, points;
 
-      pathVolume.shape.points.forEach(function(points) {
-        if (points.length > 1) {
-          firstPoint = points[0];
-          lastPoint = points[points.length - 1];
+    pathVolume.shape.points.forEach(function(points) {
+      if (points.length > 1) {
+        firstPoint = points[0];
+        lastPoint = points[points.length - 1];
 
-          if (firstPoint.x !== lastPoint.x || firstPoint.y !== lastPoint.y
-              || firstPoint.lh !== lastPoint.lh || firstPoint.rh !== lastPoint.rh) {
-            points.push(firstPoint);
-          }
+        if (firstPoint.x !== lastPoint.x || firstPoint.y !== lastPoint.y
+            || firstPoint.lh !== lastPoint.lh || firstPoint.rh !== lastPoint.rh) {
+          points.push(firstPoint);
         }
-      });
+      }
+    });
 
-      return pathVolume;
-    };
+    return pathVolume;
+  };
 
+  var exclude = function(subjectVolumes, clipVolumes) {
+    var clipVolume;
+
+    var clippedVolumes = subjectVolumes.map(function(subjectVolume) {
+      clipVolume = EASEL.volumeHelper.exclude([subjectVolume], clipVolumes);
+      if (clipVolume !== null) {
+        clipVolume.cut = subjectVolume.cut;
+      }
+      return clipVolume;
+    });
+
+    return clippedVolumes.filter(exists).map(closeVolume);
+  };
+
+  var clippedVoronoiVolumes = function(voronoiVolumes, selectedVolumes) {
     var intersect = function(voronoiVolumes, selectedVolumes) {
       var firstShapeDepth = selectedVolumes[0].cut.depth;
       var solutions = [];
@@ -173,11 +187,10 @@ var executor = function(args, success, failure) {
     return voronoi(vertices).polygons().filter(exists);
   };
 
-  var generate = function() {
-    var propertyParams = args.params;
-    var pointCount = propertyParams["Patches"];
-    var selectedVolumes = getSelectedVolumes(args.volumes, args.selectedVolumeIds);
-    var d3Polygons, voronoiVolumes;
+  // Returns cached polygons if patch count is the same as last time, otherwise,
+  // generates, caches and returns a new set of polygons.
+  var getD3Polygons = function(pointCount, selectedVolumes) {
+    var d3Polygons;
 
     if (state.previousPointCount === null || state.previousPointCount !== pointCount) {
       d3Polygons = d3VoronoiPolygons(pointCount, EASEL.volumeHelper.boundingBox(selectedVolumes));
@@ -185,10 +198,17 @@ var executor = function(args, success, failure) {
     } else {
       d3Polygons = state.previousD3Polygons;
     }
-
     state.previousPointCount = pointCount;
 
-    voronoiVolumes = d3Polygons.map(d3PointsToPathVolume);
+    return d3Polygons;
+  };
+
+  var generate = function() {
+    var propertyParams = args.params;
+    var selectedVolumes = getSelectedVolumes(args.volumes, args.selectedVolumeIds);
+    var pointCount = propertyParams["Patches"];
+    var d3Polygons = getD3Polygons(pointCount, selectedVolumes);
+    var voronoiVolumes = d3Polygons.map(d3PointsToPathVolume);
     voronoiVolumes = clippedVoronoiVolumes(voronoiVolumes, selectedVolumes);
 
     var updatedVolumes = [];
@@ -218,13 +238,11 @@ var executor = function(args, success, failure) {
         voronoiVolumes = removeCoincidentLines(voronoiVolumes);
       } else {
         if (propertyParams["Cut"] == "Fill Branches") {
-          voronoiVolumes.forEach(function(volume) {
-            volume.cut.type = "fill";
-            volume.cut.depth = 0;
-          });
+          updatedVolumes = exclude(updatedVolumes, voronoiVolumes);
           updatedVolumes.forEach(function(volume) {
             volume.cut.type = "fill";
           });
+          voronoiVolumes = [];
         } else {
           voronoiVolumes.forEach(function(volume) {
             volume.cut.outlineStyle = "inside";
